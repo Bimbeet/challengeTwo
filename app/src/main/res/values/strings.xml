@@ -3,4 +3,6 @@
     <string name="search">Search</string>
     <string name="inst">Enter a search radius to look for a place to eat!</string>
     <string name="RnD">Radius (#)</string>
+    <string name="loading">Loading…</string>
+    <string name="location_permission_denied">Location permissions denied, please enable the permissions to use this app.</string>
 </resources>
