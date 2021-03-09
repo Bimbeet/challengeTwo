@@ -8,7 +8,7 @@
     tools:context=".MainActivity">
 
     <TextView
-        android:id="@+id/textView"
+        android:id="@+id/rInstruct"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
@@ -16,6 +16,7 @@
         android:textAlignment="center"
         android:textSize="24sp"
         android:textStyle="bold"
+        android:visibility="invisible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -27,6 +28,7 @@
         android:ems="10"
         android:hint="@string/RnD"
         android:inputType="number"
+        android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -39,8 +41,23 @@
         android:layout_marginTop="2dp"
         android:onClick="onSearchTouch"
         android:text="@string/search"
+        android:visibility="invisible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/radiusInput" />
+
+    <TextView
+        android:id="@+id/needLoc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/need_location"
+        android:textAlignment="center"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

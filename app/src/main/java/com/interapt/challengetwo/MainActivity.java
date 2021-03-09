@@ -1,17 +1,19 @@
 package com.interapt.challengetwo;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
 
 import com.android.volley.Request;
@@ -27,12 +29,11 @@ import com.interapt.challengetwo.databinding.ActivityMainBinding;
 import org.json.JSONObject;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements LocationListener {
     private ActivityMainBinding binding;
-    private final String apiKey = "";
+    private final String apiKey = "AIzaSyBcwe1M5pUtNfkZqZ3SSerMNF9oD3Tvczc";
+    // Remember not to save API key to repo!
     private int PROXIMITY_RADIUS = 1;
-    private double latitude;
-    private double longitude;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,37 +43,80 @@ public class MainActivity extends AppCompatActivity {
         setContentView(tView);
         Places.initialize(getApplicationContext(), apiKey);
         PlacesClient placesClient = Places.createClient(this);
-        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Consider calling ActivityCompat#requestPermissions here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission.
-            return;
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            binding.searchButton.setVisibility(View.VISIBLE);
+            binding.radiusInput.setVisibility(View.VISIBLE);
+            binding.rInstruct.setVisibility(View.VISIBLE);
+//        } else if (shouldShowRequestPermissionRationale()) {
+//            binding.needLoc.setVisibility(View.VISIBLE);
+            // this would need work if we needed code for something weird, like the app not displaying the perm req on startup
+        } else {
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
+                    99);
         }
-        Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-        longitude = location.getLongitude();
-        latitude = location.getLatitude();
     }
-    // https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=-33.8670,151.1957&radius=100&types=food&key=API_KEY
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        return super.onTouchEvent(event);
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == 99) {
+            for (int i = 0; i < permissions.length; i++) {
+                String permission = permissions[i];
+                int grantResult = grantResults[i];
+
+                if (permission.equals(Manifest.permission.ACCESS_FINE_LOCATION) || permission.equals(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                    if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                        binding.searchButton.setVisibility(View.VISIBLE);
+                        binding.radiusInput.setVisibility(View.VISIBLE);
+                        binding.rInstruct.setVisibility(View.VISIBLE);
+                    } else {
+                        binding.needLoc.setVisibility(View.VISIBLE);
+//                        ActivityCompat.requestPermissions(MainActivity.this,
+//                                new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
+//                                99);
+                    }
+                }
+            }
+        }
     }
 
     public void onSearchTouch(View v) {
         if (!binding.radiusInput.getText().toString().isEmpty()) {
             PROXIMITY_RADIUS = Integer.parseInt(binding.radiusInput.getText().toString());
+            Log.d("debugy", "PROXIMITY_RADIUS = " + PROXIMITY_RADIUS);
         }
-        Log.d("debugy", "PROXIMITY_RADIUS = " + PROXIMITY_RADIUS);
-        Intent i = getIntent();
+        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        try {
+            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        } catch (Exception ex) {
+            Log.d("debugy", "location_services Exception throw : " + ex.toString());
+        }
+        // although we did this check already, the app seems to require it when getting the getLastKnownLocation
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+//        try {
+//            lm.requestSingleUpdate( LocationManager.NETWORK_PROVIDER, new LocationListener(), null );
+//        } catch ( SecurityException e ) { e.printStackTrace(); }
+        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, this);
+
+        Location currlocation = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        Log.d("debugy", "Lat / long = " + currlocation.getLatitude() + " / " + currlocation.getLongitude());
+        double latitude = currlocation.getLatitude();
+        double longitude = currlocation.getLongitude();
+//        double longitude = -85.773934499646;
+//        double latitude = 38.200575703571;
         StringBuilder googlePlacesUrl =
                 new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
         googlePlacesUrl.append("location=").append(latitude).append(",").append(longitude);
         googlePlacesUrl.append("&radius=").append(PROXIMITY_RADIUS);
         googlePlacesUrl.append("&types=food&sensor=true");
         googlePlacesUrl.append("&key=" + apiKey);
+        Log.d("debugy", "Request = " + googlePlacesUrl.toString());
 
         JsonObjectRequest request = new JsonObjectRequest(googlePlacesUrl.toString(), null,
                 new Response.Listener<JSONObject>() {
@@ -92,10 +136,40 @@ public class MainActivity extends AppCompatActivity {
 
         SearchHelper.getInstance(this).addToRequestQueue(request);
     }
+
+    @Override
+    public void onLocationChanged(@NonNull Location location) {
+        Log.d("dj", "on location changed: " + location.getLatitude() + " & " + location.getLongitude());
+    }
 //    private void parseLocationResult(final JSONObject result) {}
 }
 
+//    class LocationListener myLocationListener = new LocationListener() {
+//        @Override
+//        public void onLocationChanged(Location location) {
+//            Log.d("dj","on location changed: "+location.getLatitude()+" & "+location.getLongitude());
+////            toastLocation(location);
+//        }
+//
+//        @Override
+//        public void onStatusChanged(String provider, int status, Bundle extras) {
+//
+//        }
+//
+//        @Override
+//        public void onProviderEnabled(String provider) {
+//
+//        }
+//
+//        @Override
+//        public void onProviderDisabled(String provider) {
+//
+//        }
+//    };
+
 class SearchHelper {
+    @SuppressLint("StaticFieldLeak")
+    // Unknown how to fix slight memory leak here caused by saving the instance as static
     private static SearchHelper INSTANCE;
     private RequestQueue requestQueue;
     private final Context context;
