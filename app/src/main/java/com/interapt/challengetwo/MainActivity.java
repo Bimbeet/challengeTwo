@@ -26,14 +26,19 @@ import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import com.interapt.challengetwo.databinding.ActivityMainBinding;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 
 public class MainActivity extends AppCompatActivity implements LocationListener {
     private ActivityMainBinding binding;
-    private final String apiKey = "AIzaSyBcwe1M5pUtNfkZqZ3SSerMNF9oD3Tvczc";
+    private final String apiKey = "";
     // Remember not to save API key to repo!
-    private int PROXIMITY_RADIUS = 1;
+    PlacesClient placesClient;
+    int PROXIMITY_RADIUS = 1;
+    double latitude;
+    double longitude;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,7 +47,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         View tView = binding.getRoot();
         setContentView(tView);
         Places.initialize(getApplicationContext(), apiKey);
-        PlacesClient placesClient = Places.createClient(this);
+        placesClient = Places.createClient(this);
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             binding.searchButton.setVisibility(View.VISIBLE);
@@ -102,19 +107,23 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 //        try {
 //            lm.requestSingleUpdate( LocationManager.NETWORK_PROVIDER, new LocationListener(), null );
 //        } catch ( SecurityException e ) { e.printStackTrace(); }
-        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, this);
+        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 50000, 0, this);
 
         Location currlocation = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
         Log.d("debugy", "Lat / long = " + currlocation.getLatitude() + " / " + currlocation.getLongitude());
-        double latitude = currlocation.getLatitude();
-        double longitude = currlocation.getLongitude();
-//        double longitude = -85.773934499646;
-//        double latitude = 38.200575703571;
+        latitude = currlocation.getLatitude();
+        longitude = currlocation.getLongitude();
+//        longitude = -85.773934499646;
+//        latitude = 38.200575703571;
+        preformRequest();
+    }
+
+    private void preformRequest() {
         StringBuilder googlePlacesUrl =
                 new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
         googlePlacesUrl.append("location=").append(latitude).append(",").append(longitude);
         googlePlacesUrl.append("&radius=").append(PROXIMITY_RADIUS);
-        googlePlacesUrl.append("&types=food&sensor=true");
+        googlePlacesUrl.append("&types=restaurant,bakery,cafe&sensor=true");
         googlePlacesUrl.append("&key=" + apiKey);
         Log.d("debugy", "Request = " + googlePlacesUrl.toString());
 
@@ -123,7 +132,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                     @Override
                     public void onResponse(JSONObject result) {
                         Log.i("debugy", "onResponse: Result = " + result.toString());
-//                        parseLocationResult(result);
+                        parseLocationResult(result);
                     }
                 },
                 new Response.ErrorListener() {
@@ -140,32 +149,49 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     @Override
     public void onLocationChanged(@NonNull Location location) {
         Log.d("dj", "on location changed: " + location.getLatitude() + " & " + location.getLongitude());
+        latitude = location.getLatitude();
+        longitude = location.getLongitude();
+//        preformRequest();
     }
-//    private void parseLocationResult(final JSONObject result) {}
-}
 
-//    class LocationListener myLocationListener = new LocationListener() {
-//        @Override
-//        public void onLocationChanged(Location location) {
-//            Log.d("dj","on location changed: "+location.getLatitude()+" & "+location.getLongitude());
-////            toastLocation(location);
-//        }
-//
-//        @Override
-//        public void onStatusChanged(String provider, int status, Bundle extras) {
-//
-//        }
-//
-//        @Override
-//        public void onProviderEnabled(String provider) {
-//
-//        }
-//
-//        @Override
-//        public void onProviderDisabled(String provider) {
-//
-//        }
-//    };
+    private void parseLocationResult(final JSONObject result) {
+//        placesClient.fetchPlace();
+        String name = null;
+        String address = null;
+        String photo_ref = null;
+        try {
+            JSONArray arr = result.getJSONArray("results");
+            name = arr.getJSONObject(0).getString("name");
+            Log.d("debugy", "JSONobject: name - " + name);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        try {
+            JSONArray arr = result.getJSONArray("results");
+            address = arr.getJSONObject(0).getString("formatted_address");
+            Log.d("debugy", "JSONobject: address - " + address);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        try {
+            JSONArray arr = result.getJSONArray("results");
+            photo_ref = arr.getJSONObject(0).getJSONArray("photos").getJSONObject(0).getString("photo_reference");
+            Log.d("debugy", "JSONobject: photo_ref - " + photo_ref);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        if (!name.isEmpty() || !address.isEmpty()) {
+            binding.searchButton.setVisibility(View.INVISIBLE);
+            binding.radiusInput.setVisibility(View.INVISIBLE);
+            binding.rInstruct.setVisibility(View.INVISIBLE);
+            binding.nameDisplay.setText(name);
+            binding.nameDisplay.setVisibility(View.VISIBLE);
+            binding.addressDisplay.setText(address);
+            binding.addressDisplay.setVisibility(View.VISIBLE);
+        }
+    }
+}
 
 class SearchHelper {
     @SuppressLint("StaticFieldLeak")
