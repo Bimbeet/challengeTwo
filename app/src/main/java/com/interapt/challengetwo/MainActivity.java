@@ -8,11 +8,13 @@ import androidx.core.app.ActivityCompat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -254,18 +256,34 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 }
             });
 
-            if (name != null || address != null) {
+            if (name != null) {
                 binding.searchButton.setVisibility(View.INVISIBLE);
                 binding.radiusInput.setVisibility(View.INVISIBLE);
                 binding.rInstruct.setVisibility(View.INVISIBLE);
                 binding.nameDisplay.setText(name);
                 binding.nameDisplay.setVisibility(View.VISIBLE);
-                binding.addressDisplay.setText(address);
-                binding.addressDisplay.setVisibility(View.VISIBLE);
+                if (address != null) {
+                    binding.addressDisplay.setText(address);
+                    binding.addressDisplay.setVisibility(View.VISIBLE);
+                    // make address clickable or add separate button for address search here
+                } else {
+                    binding.mapButton.setVisibility(View.VISIBLE);
+                }
             }
         }
     }
+
+    @SuppressLint("QueryPermissionsNeeded")
+    public void showMap(View view) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(Uri.parse("geo:" + latitude + "%2C" + longitude + "(restaurant)"));
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivity(intent);
+            Log.i("debugy", "intent hit, should move to map");
+        }
+    }
 }
+
 
 class SearchHelper {
     @SuppressLint("StaticFieldLeak")
