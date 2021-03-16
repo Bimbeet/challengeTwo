@@ -8,4 +8,5 @@
     <string name="need_location">This App requires location services to function, as it uses your approximate location to find places around you with the Google Places API. Please Enable location functionality below.</string>
     <string name="request">Request Location</string>
     <string name="mapbutton">See in Google Maps</string>
+    <string name="nextplace">Next Place</string>
 </resources>

@@ -47,12 +47,9 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements LocationListener {
     private ActivityMainBinding binding;
-    private final String apiKey = "AIzaSyBcwe1M5pUtNfkZqZ3SSerMNF9oD3Tvczc";
+    private final String apiKey = "";
     // Remember not to save API key to repo!
     PlacesClient placesClient;
-    int PROXIMITY_RADIUS = 800;
-    double latitude;
-    double longitude;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,8 +57,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         View tView = binding.getRoot();
         setContentView(tView);
+
         Places.initialize(getApplicationContext(), apiKey);
         placesClient = Places.createClient(this);
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             binding.searchButton.setVisibility(View.VISIBLE);
             binding.radiusInput.setVisibility(View.VISIBLE);
@@ -105,6 +104,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         // on deny, currently button will not work in emulator testing
     }
 
+    int PROXIMITY_RADIUS = 800;
+    double latitude;
+    double longitude;
+
     public void onSearchTouch(View v) {
         if (!binding.radiusInput.getText().toString().isEmpty()) {
             if ((1609 * Integer.parseInt(binding.radiusInput.getText().toString())) < 50000) {
@@ -135,10 +138,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         longitude = currlocation.getLongitude();
 //        longitude = -85.773934499646;
 //        latitude = 38.200575703571;
-        preformRequest();
+        preformPlaceRequest();
     }
 
-    private void preformRequest() {
+    JSONObject placeReqResults;
+    int placeIndex = 0;
+
+    private void preformPlaceRequest() {
         StringBuilder googlePlacesUrl =
                 new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
         googlePlacesUrl.append("location=").append(latitude).append(",").append(longitude);
@@ -153,6 +159,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                     public void onResponse(JSONObject result) {
                         Log.i("debugy", "onResponse: Result = " + result.toString());
                         parseLocationResult(result);
+                        placeReqResults = result;
                     }
                 },
                 new Response.ErrorListener() {
@@ -171,7 +178,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         Log.d("dj", "on location changed: " + location.getLatitude() + " & " + location.getLongitude());
         latitude = location.getLatitude();
         longitude = location.getLongitude();
-//        preformRequest();
+//        preformPlaceRequest();
     }
 
     private void parseLocationResult(final JSONObject result) {
@@ -182,26 +189,27 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         try {
             JSONArray placesResultsArray = result.getJSONArray("results");
             try {
-                name = placesResultsArray.getJSONObject(0).getString("name");
-                Log.d("debugy", "JSONobject: name - " + name);
+                name = placesResultsArray.getJSONObject(placeIndex).getString("name");
+                Log.i("debugy", "JSONobject: name - " + name);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
             try {
-                place_id = placesResultsArray.getJSONObject(0).getString("place_id");
-                Log.d("debugy", "JSONobject: place_id - " + place_id);
+                place_id = placesResultsArray.getJSONObject(placeIndex).getString("place_id");
+                Log.i("debugy", "JSONobject: place_id - " + place_id);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
             try {
-                address = placesResultsArray.getJSONObject(0).getString("formatted_address");
-                Log.d("debugy", "JSONobject: address - " + address);
+                address = placesResultsArray.getJSONObject(placeIndex).getString("formatted_address");
+                Log.i("debugy", "JSONobject: address - " + address);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
 //        try {
 //            JSONArray arr = result.getJSONArray("results");
 //            photo_ref = arr.getJSONObject(0).getJSONArray("photos").getJSONObject(0).getString("photo_reference");
@@ -228,6 +236,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             placesClient.fetchPlace(placeRequest).addOnSuccessListener(new OnSuccessListener<FetchPlaceResponse>() {
                 @Override
                 public void onSuccess(FetchPlaceResponse response) {
+                    Log.i("debugy", "Second place request for photo : " + response.toString());
                     final Place place = response.getPlace();
                     final List<PhotoMetadata> metadata = place.getPhotoMetadatas();
                     if (metadata == null || metadata.isEmpty()) {
@@ -262,15 +271,37 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 binding.rInstruct.setVisibility(View.INVISIBLE);
                 binding.nameDisplay.setText(name);
                 binding.nameDisplay.setVisibility(View.VISIBLE);
+                try {
+                    Log.d("debugy", "Newest Place to show grab : " + result.getJSONArray("results").getJSONObject(placeIndex++).toString());
+                    if (result.getJSONArray("results").getJSONObject(placeIndex++) != null) {
+                        binding.nextPlaceButton.setVisibility(View.VISIBLE);
+                    } else {
+                        binding.nextPlaceButton.setVisibility(View.INVISIBLE);
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
                 if (address != null) {
-                    binding.addressDisplay.setText(address);
+                    final String finalAddress = address;
+                    binding.addressDisplay.setText(finalAddress);
+                    binding.addressDisplay.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            showAddress(Uri.encode(finalAddress));
+                        }
+                    });
                     binding.addressDisplay.setVisibility(View.VISIBLE);
-                    // make address clickable or add separate button for address search here
                 } else {
                     binding.mapButton.setVisibility(View.VISIBLE);
                 }
             }
         }
+    }
+
+    public void nextPlace(View view) {
+        placeIndex++;
+        parseLocationResult(placeReqResults);
     }
 
     @SuppressLint("QueryPermissionsNeeded")
@@ -282,8 +313,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             Log.i("debugy", "intent hit, should move to map");
         }
     }
-}
 
+    @SuppressLint("QueryPermissionsNeeded")
+    public void showAddress(String geoUri) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(Uri.parse(geoUri));
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivity(intent);
+            Log.i("debugy", "intent hit, should move to map");
+        }
+    }
+}
 
 class SearchHelper {
     @SuppressLint("StaticFieldLeak")
