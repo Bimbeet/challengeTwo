@@ -9,4 +9,5 @@
     <string name="request">Request Location</string>
     <string name="mapbutton">See in Google Maps</string>
     <string name="nextplace">Next Place</string>
+    <string name="prevplace">Last Place</string>
 </resources>

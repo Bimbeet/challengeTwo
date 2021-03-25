@@ -104,16 +104,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         // on deny, currently button will not work in emulator testing
     }
 
-    int PROXIMITY_RADIUS = 800;
+    int PROXIMITY_RADIUS = 809;
     double latitude;
     double longitude;
-
     public void onSearchTouch(View v) {
         if (!binding.radiusInput.getText().toString().isEmpty()) {
             if ((1609 * Integer.parseInt(binding.radiusInput.getText().toString())) < 50000) {
                 PROXIMITY_RADIUS = 1609 * Integer.parseInt(binding.radiusInput.getText().toString());
             } else {
-                PROXIMITY_RADIUS = 48000;
+                PROXIMITY_RADIUS = 46000;
             }
             Log.d("debugy", "PROXIMITY_RADIUS in meters = " + PROXIMITY_RADIUS);
         }
@@ -143,7 +142,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
     JSONObject placeReqResults;
     int placeIndex = 0;
-
     private void preformPlaceRequest() {
         StringBuilder googlePlacesUrl =
                 new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
@@ -157,9 +155,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject result) {
-                        Log.i("debugy", "onResponse: Result = " + result.toString());
-                        parseLocationResult(result);
+//                        Log.i("debugy", "onResponse: Result = " + result.toString());
                         placeReqResults = result;
+                        parseLocationResult(result);
                     }
                 },
                 new Response.ErrorListener() {
@@ -181,6 +179,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 //        preformPlaceRequest();
     }
 
+    String finalAddress;
+    JSONArray currentPlacesArray = new JSONArray();
+    Boolean doOnce = false;
+
     private void parseLocationResult(final JSONObject result) {
         String name = null;
         String address = null;
@@ -188,20 +190,45 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         String place_id = null;
         try {
             JSONArray placesResultsArray = result.getJSONArray("results");
+            Log.i("debugy", "placesResultsArray : " + placesResultsArray.toString());
+            if (!doOnce) {
+                for (int resultsIndex = 0; resultsIndex < placesResultsArray.length(); resultsIndex++) {
+                    Log.d("debugy", "placesResultsArray.getJSONObject(i) - " + placesResultsArray.getJSONObject(resultsIndex).toString());
+                    if (!placesResultsArray.getJSONObject(resultsIndex).getString("name").contains("test")) {
+                        currentPlacesArray.put(placesResultsArray.getJSONObject(resultsIndex));
+                    }
+
+//                    for (int currentIndex = 0; currentIndex < currentPlacesArray.length(); currentIndex++) {
+//                        for (int nextIndex = 1; nextIndex < currentPlacesArray.length(); nextIndex++) {
+//                            if (currentPlacesArray.getJSONObject(currentIndex).getString("name").equals(currentPlacesArray.getJSONObject(nextIndex).getString("name"))) {
+//                                currentPlacesArray.remove(nextIndex);
+//                            }
+//                        }
+//                    }
+                }
+                doOnce = true;
+                Log.d("debugy", "prevPlacesArray : " + currentPlacesArray.toString());
+            }
             try {
-                name = placesResultsArray.getJSONObject(placeIndex).getString("name");
+                name = currentPlacesArray.getJSONObject(placeIndex).getString("name");
+//                if (!prevPlacesArray.getJSONObject(placeIndex).getString("name").contains(name)) {
+//                    prevPlacesArray.add(placesResultsArray.getString(i));
+//                } else {
+//                    placeIndex++;
+//                    name = placesResultsArray.getJSONObject(placeIndex).getString("name");
+//                }
                 Log.i("debugy", "JSONobject: name - " + name);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
             try {
-                place_id = placesResultsArray.getJSONObject(placeIndex).getString("place_id");
+                place_id = currentPlacesArray.getJSONObject(placeIndex).getString("place_id");
                 Log.i("debugy", "JSONobject: place_id - " + place_id);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
             try {
-                address = placesResultsArray.getJSONObject(placeIndex).getString("formatted_address");
+                address = currentPlacesArray.getJSONObject(placeIndex).getString("vicinity");
                 Log.i("debugy", "JSONobject: address - " + address);
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -272,31 +299,36 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 binding.nameDisplay.setText(name);
                 binding.nameDisplay.setVisibility(View.VISIBLE);
                 try {
-                    Log.d("debugy", "Newest Place to show grab : " + result.getJSONArray("results").getJSONObject(placeIndex++).toString());
-                    if (result.getJSONArray("results").getJSONObject(placeIndex++) != null) {
+                    if (currentPlacesArray.getJSONObject(placeIndex++) != null) {
                         binding.nextPlaceButton.setVisibility(View.VISIBLE);
                     } else {
                         binding.nextPlaceButton.setVisibility(View.INVISIBLE);
+                    }
+
+                    if (placeIndex - 1 < 0) {
+                        binding.prevPlaceButton.setVisibility(View.INVISIBLE);
+                    } else {
+                        binding.prevPlaceButton.setVisibility(View.VISIBLE);
                     }
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
 
                 if (address != null) {
-                    final String finalAddress = address;
+                    finalAddress = address;
                     binding.addressDisplay.setText(finalAddress);
-                    binding.addressDisplay.setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            showAddress(Uri.encode(finalAddress));
-                        }
-                    });
                     binding.addressDisplay.setVisibility(View.VISIBLE);
+                    binding.mapButton.setVisibility(View.INVISIBLE);
                 } else {
+                    binding.addressDisplay.setVisibility(View.INVISIBLE);
                     binding.mapButton.setVisibility(View.VISIBLE);
                 }
             }
         }
+    }
+
+    public void onAddressClick(View view) {
+        showAddress(Uri.encode(finalAddress));
     }
 
     public void nextPlace(View view) {
@@ -304,7 +336,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         parseLocationResult(placeReqResults);
     }
 
-    @SuppressLint("QueryPermissionsNeeded")
+    public void prevPlace(View view) {
+        placeIndex--;
+        parseLocationResult(placeReqResults);
+    }
+
     public void showMap(View view) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setData(Uri.parse("geo:" + latitude + "%2C" + longitude + "(restaurant)"));
@@ -314,7 +350,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         }
     }
 
-    @SuppressLint("QueryPermissionsNeeded")
     public void showAddress(String geoUri) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setData(Uri.parse(geoUri));
